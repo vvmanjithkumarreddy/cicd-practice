@@ -1,1 +1,1 @@
-This is a practice cicd end to end project.
+This is a practice cicd end-to-end project.
