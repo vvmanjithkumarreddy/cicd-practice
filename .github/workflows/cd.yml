@@ -40,3 +40,28 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set image reference
+        id: img
+        run: |
+          REPO=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+          echo "ref=ghcr.io/${REPO}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            docker pull ${{ steps.img.outputs.ref }}
+            docker rm -f app || true
+            docker run -d --name app --restart unless-stopped -p 8000:8000 ${{ steps.img.outputs.ref }}
+            sleep 5
+            curl -f http://localhost:8000
+            docker image prune -f
